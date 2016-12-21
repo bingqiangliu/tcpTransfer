@@ -1,124 +1,136 @@
 #!/usr/bin/env python
 from twisted.logger import Logger
 from twisted.internet import reactor
-from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
+
 from pymodbus.constants import Defaults
-from pymodbus.client.sync import ModbusTcpClient
 from pymodbus.client.async import ModbusClientProtocol
 
+ROBOT_ADDRESS = '192.168.100.1'
 
 class PIProtocol(ModbusClientProtocol):
-    log = Logger(namespace="ModbusClientProtocol")
-    PREFIX = "T"
+    log = Logger(namespace="PIProtocol")
+    TRAVERSE_PREFIX = "T"
+    TOUCH_PREFIX = "P"
+    TCP_ADDRESS = 400
+    TOUCH_ADDRESS = 1
 
     def __init__(self, framer=None):
-        ''' Initializes our custom protocol
+        ModbusClientProtocol.__init__(self, framer=framer)
+        self.log.debug("beginning the processing loop")
+        reactor.callLater(0, self.fetch_tcp_registers)
+        reactor.callLater(0, self.fetch_flag_register)
 
-        :param framer: The decoder to use to process messages
-        :param endpoint: The endpoint to send results to
-        '''
-        ModbusClientProtocol.__init__(self, framer=None)
-        self.log.debug("Beginning the processing loop")
-        #reactor.callLater(self.factory.interval / 1000, self.fetch_holding_registers)
+    @property
+    def interval(self):
+        return self.factory.interval / 1000
 
-    def fetch_holding_registers(self):
-        ''' Defer fetching holding registers
-        '''
-        self.log.debug("Starting the next cycle")
-        #d = self.read_holding_registers(*STATUS_REGS)
-        #d.addCallbacks(self.send_holding_registers, self.error_handler)
+    @property
+    def client(self):
+        return self.factory.client
 
-    def send_holding_registers(self, response):
-        ''' Write values of holding registers, defer fetching coils
+    def fetch_flag_register(self):
+        d = self.read_coils(self.TOUCH_ADDRESS, 1)
+        d.addCallbacks(self.on_received_flag, self.error_handler)
 
-        :param response: The response to process
-        '''
-        #TODO: send data back to PowerInsepct after reform
+    def on_received_flag(self, response):
+        flag = True if response.getBit(0) else False
+        if flag:
+            self.log.info("touch happened")
+            reactor.callLater(0, self.fetch_tcp_registers, True)
+        else:
+            self.log.info("start next cycle for touched")
+            reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
-        self.start_next_cycle()
+    def fetch_tcp_registers(self, touched=False):
+        self.log.debug("fetching TCP registers touched={}".format(touched))
+        d = self.read_holding_registers(self.TCP_ADDRESS, 3)
+        if touched:
+            d.addCallbacks(self.send_touch_points, self.error_handler)
+        else:
+            d.addCallbacks(self.send_traverse_points, self.error_handler)
 
-    def start_next_cycle(self):
-        ''' Write values of coils, trigger next cycle
+    def send_traverse_points(self, response):
+        registers = response.registers
+        self.client.send("{},{},{},{}".format(self.TRAVERSE_PREFIX, *registers))
+        self.log.info("start next cycle")
+        reactor.callLater(self.interval, self.fetch_tcp_registers)
 
-        :param response: The response to process
-        '''
-        reactor.callLater(self.factory.interval / 1000, self.fetch_holding_registers)
+    def send_touch_points(self, response):
+        registers = response.registers
+        self.client.send("{},{},{},{}".format(self.TOUCH_PREFIX, *registers))
+        self.reset_flag_register()
+
+    def reset_flag_register(self):
+        self.log.debug("reset flag register")
+
+        def done(response):
+            self.log.info("reset succeed {}, start next cycle".
+                          format(response))
+            reactor.callLater(self.interval * 2, self.fetch_flag_register)
+
+        def error(failure):
+            self.log.error("reset failed {}, retry".format(str(failure)))
+            reactor.callLater(self.interval / 2, self.reset_flag_register)
+
+        d = self.write_coil(self.TOUCH_ADDRESS, False)
+        d.addCallbacks(done, error)
 
     def error_handler(self, failure):
-        ''' Handle any twisted errors
-
-        :param failure: The error to handle
-        '''
-        self.log.error(failure)
+        self.log.error(str(failure))
 
 
-class PIFactory(ReconnectingClientFactory):
+class PIFactory(RCFactory):
     protocol = PIProtocol
-    piHandler = None
+    client = None
     interval = None
     running = False
 
-    def __init__(self, piHandler, interval):
-        self.piHandler = piHandler
+    def __init__(self, client, interval):
+        self.client = client
         self.interval = interval
 
     def startedConnecting(self, connector):
         self.running = True
-        ReconnectingClientFactory.startedConnecting(self, connector)
+        RCFactory.startedConnecting(self, connector)
 
     def clientConnectionFailed(self, connector, reason):
         self.running = False
-        ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+        RCFactory.clientConnectionFailed(self, connector, reason)
 
     def clientConnectionLost(self, connector, unused_reason):
         self.running = False
-        ReconnectingClientFactory.clientConnectionLost(self, connector, unused_reason)
+        RCFactory.clientConnectionLost(self, connector, unused_reason)
 
 
-class MbClient(object):
-    """client to handle polling and event processing"""
+class ModbusClient(object):
     log = Logger(namespace="ModbusClient")
-    address = None
-    port = None
-    piHandler = None
+    address = ROBOT_ADDRESS
+    port = Defaults.Port
+    client = None
     connector = None
 
-    def __init__(self, piHandler):
-        self.piHandler = piHandler
-        self.factory = PIFactory(self.piHandler, 10)
+    def __init__(self, client):
+        self.client = client
+        self.factory = PIFactory(self.client, 10)
 
     def reconfig(self, address, port=Defaults.Port):
-        """reconfig address and/or port"""
         if (self.address, self.port) == (address, port):
             self.log.info("no configuration changed")
             return
-        #stop polling and re-construct clients
         self.address, self.port = address, port
+        self.log.info("config changed to {}".format((self.address, self.port)))
 
     def startPolling(self):
-        """start polling"""
         if not self.factory.running and not self.connector:
-            self.log.info("start reading TCP of moving point and translating to PI")
-            self.connector = reactor.connectTCP(self.address, self.port, self.factory)
+            self.connector = reactor.connectTCP(self.address,
+                                                self.port,
+                                                self.factory)
+            self.log.info("started reading position and translating to PI")
 
     def stopPolling(self):
-        """stop polling"""
         if self.factory.running and self.connector:
-            self.log.info("stop reading TCP of moving point and translating to PI")
             self.connector.disconnect()
             self.connector = None
-
-    def eventHandler(self):
-        """read and transfer to PI synchronously"""
-        try:
-            self.stopPolling()
-            with ModbusTcpClient(self.address, self.port) as cli:
-                #TODO: complete command sending and result parser
-                result = cli.execute('')
-                #add "P" prefix
-                self.piHandler.send(result)
-        except Exception as error:
-            self.log.error(str(error))
-        finally:
-            self.startPolling()
+            self.log.info("stopped reading position and translating to PI")
 

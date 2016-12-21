@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+import sys
+import os.path
 
-from app.mbclient import MbClient
-from app.powerinspect import stopServer
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from app.mbclient import ModbusClient
 from app.powerinspect import startServer
 from twisted.application.internet import TCPServer
 from twisted.application.service import Application
@@ -14,9 +16,9 @@ class Transfer(Resource):
 
     def __init__(self, path):
         self.path = path
-        self.piHandler = startServer(9999)
-        self.mbClient = MbClient(self.piHandler)
-        self.mbClient.reconfig('127.0.0.1', 5020)
+        self.piHandler = startServer(49000)
+        self.mbClient = ModbusClient(self.piHandler)
+        self.mbClient.startPolling()
         Resource.__init__(self)
 
     def render_GET(self, request):
@@ -25,11 +27,11 @@ class Transfer(Resource):
         else:
             return "Stopped"
 
-    def render_POST(self, request):
+    def render_POST(self, _):
         self.mbClient.startPolling()
         return "Started"
 
-    def render_PUT(self, request):
+    def render_PUT(self, _):
         self.mbClient.stopPolling()
         return "Stopped"
 
