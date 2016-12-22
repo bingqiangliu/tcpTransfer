@@ -14,8 +14,7 @@ from twisted.web.server import Site
 class Transfer(Resource):
     isLeaf = True
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self):
         self.piHandler = startServer(49000)
         self.mbClient = ModbusClient(self.piHandler)
         self.mbClient.startPolling()
