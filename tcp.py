@@ -3,7 +3,7 @@ import sys
 import os.path
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-from app.mbclient import ModbusClient
+from app.rtdeclient import RTDEClient
 from app.powerinspect import startServer
 from twisted.application.internet import TCPServer
 from twisted.application.service import Application
@@ -16,22 +16,22 @@ class Transfer(Resource):
 
     def __init__(self):
         self.piHandler = startServer(49000)
-        self.mbClient = ModbusClient(self.piHandler)
-        self.mbClient.startPolling()
+        self.exClient = RTDEClient(self.piHandler)
+        self.exClient.startPolling()
         Resource.__init__(self)
 
     def render_GET(self, request):
-        if self.mbClient.factory.running:
+        if self.exClient.factory.running:
             return "Running"
         else:
             return "Stopped"
 
     def render_POST(self, _):
-        self.mbClient.startPolling()
+        self.exClient.startPolling()
         return "Started"
 
     def render_PUT(self, _):
-        self.mbClient.stopPolling()
+        self.exClient.stopPolling()
         return "Stopped"
 
 

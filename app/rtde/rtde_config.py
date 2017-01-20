@@ -25,7 +25,8 @@ import xml.etree.ElementTree as ET
 
 
 class Recipe(object):
-    __slots__=['key', 'names', 'types']
+    __slots__ = ['key', 'names', 'types']
+
     @staticmethod
     def parse(recipe_node):
         rmd = Recipe()

@@ -25,7 +25,7 @@ import struct
 
 
 class ControlHeader(object):
-    __slots__ = ['command', 'size',]
+    __slots__ = ['command', 'size']
     
     @staticmethod
     def unpack(buf):
@@ -76,33 +76,32 @@ def get_item_size(data_type):
         return 3
     return 1
 
+
 def unpack_field(data, offset, data_type):
     size = get_item_size(data_type)
-    if(data_type == 'VECTOR6D' or
-       data_type == 'VECTOR3D'):
+    if data_type == 'VECTOR6D' or data_type == 'VECTOR3D':
         return [float(data[offset+i]) for i in range(size)]
-    elif(data_type == 'VECTOR6UINT32'):
+    elif data_type == 'VECTOR6UINT32':
         return [int(data[offset+i]) for i in range(size)]
-    elif(data_type == 'DOUBLE'):
+    elif data_type == 'DOUBLE':
         return float(data[offset])
-    elif(data_type == 'UINT32' or
-         data_type == 'UINT64'):
+    elif data_type == 'UINT32' or data_type == 'UINT64':
         return int(data[offset])
-    elif(data_type == 'VECTOR6INT32'):
+    elif data_type == 'VECTOR6INT32':
         return [int(data[offset+i]) for i in range(size)]
-    elif(data_type == 'INT32' or
-         data_type == 'UINT8'):
+    elif data_type == 'INT32' or data_type == 'UINT8':
         return int(data[offset])
     raise ValueError('unpack_field: unknown data type: ' + data_type)
 
 
 class DataObject(object):
     recipe_id = None
+
     def pack(self, names, types):
         if len(names) != len(types):
             raise ValueError('List sizes are not identical.')
         l = []
-        if(self.recipe_id is not None):
+        if self.recipe_id is not None:
             l.append(self.recipe_id)
         for i in range(len(names)):
             if self.__dict__[names[i]] is None:
@@ -135,6 +134,7 @@ class DataObject(object):
 
 class DataConfig(object):
     __slots__ = ['id', 'names', 'types', 'fmt']
+
     @staticmethod
     def unpack_recipe(buf, has_recipe_id):
         rmd = DataConfig();
@@ -146,25 +146,25 @@ class DataConfig(object):
             rmd.types = buf[:].split(',')
             rmd.fmt = '>'
         for i in rmd.types:
-            if i=='INT32':
+            if i == 'INT32':
                 rmd.fmt += 'i'
-            elif i=='UINT32':
+            elif i == 'UINT32':
                 rmd.fmt += 'I'
-            elif i=='VECTOR6D':
+            elif i == 'VECTOR6D':
                 rmd.fmt += 'd'*6
-            elif i=='VECTOR3D':
+            elif i == 'VECTOR3D':
                 rmd.fmt += 'd'*3
-            elif i=='VECTOR6INT32':
+            elif i == 'VECTOR6INT32':
                 rmd.fmt += 'i'*6
-            elif i=='VECTOR6UINT32':
+            elif i == 'VECTOR6UINT32':
                 rmd.fmt += 'I'*6
-            elif i=='DOUBLE':
+            elif i == 'DOUBLE':
                 rmd.fmt += 'd'
-            elif i=='UINT64':
+            elif i == 'UINT64':
                 rmd.fmt += 'Q'
-            elif i=='UINT8':
+            elif i == 'UINT8':
                 rmd.fmt += 'B'
-            elif i=='IN_USE':
+            elif i == 'IN_USE':
                 raise ValueError('An input parameter is already in use.')
             else:
                 raise ValueError('Unknown data type: ' + i)
@@ -175,6 +175,5 @@ class DataConfig(object):
         return struct.pack(self.fmt, *l)
 
     def unpack(self, data):
-        li =  struct.unpack_from(self.fmt, data)
+        li = struct.unpack_from(self.fmt, data)
         return DataObject.unpack(li, self.names, self.types)
-    
