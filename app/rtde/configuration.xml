@@ -2,6 +2,6 @@
 <rtde_config>
 	<recipe key="transfer">
 		<field name="actual_TCP_pose" type="VECTOR6D"/>
-		<field name="output_int_register_10" type="INT32"/>
+		<field name="actual_digital_input_bits" type="UINT64"/>
 	</recipe>
 </rtde_config>

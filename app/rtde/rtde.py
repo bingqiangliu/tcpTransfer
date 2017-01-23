@@ -29,12 +29,14 @@ from os.path import dirname
 from twisted.logger import Logger
 from twisted.internet.protocol import Protocol
 import serialize
-from rtde.rtde_config import ConfigFile
+from rtde_config import ConfigFile
 
 
+TRAVERSE_PREFIX = "T"
+TOUCH_PREFIX = "P"
 PROTOCOL_VERSION = 1
 DEFAULT_TIMEOUT = 1.0
-CONFIG_FILE = join(dirname(abspath(__file__), 'configuration.xml'))
+CONFIG_FILE = join(dirname(abspath(__file__)), 'configuration.xml')
 
 
 class Command:
@@ -43,7 +45,6 @@ class Command:
     DATA_PACKAGE = 85                    # ascii U
     CONTROL_PACKAGE_SETUP_OUTPUTS = 79   # ascii O
     CONTROL_PACKAGE_START = 83           # ascii S
-
 
 class RTDE(Protocol):
     """RTDE sequence is as following
@@ -54,11 +55,17 @@ class RTDE(Protocol):
     """
     log = Logger(namespace="RTDE")
 
+
+    @property
+    def client(self):
+        return self.factory.client
+
     def __init__(self):
+        self.log.debug("beginning the processing loop")
         self.__names, self.__types = ConfigFile(CONFIG_FILE).get_recipe('transfer')
         self.__config = None
         self.__cmd = None
-        self.__buf = ''
+        self.buf = ''
 
     def connectionMade(self):
         """kick off sequence as soon as socket connection made"""
@@ -66,14 +73,14 @@ class RTDE(Protocol):
 
     def dataReceived(self, data):
         """spin according to cmd code"""
-        self.__buf += data
+        self.buf += data
         # unpack_from requires a buffer of at least 3 bytes
-        while len(self.__buf) >= 3:
+        while len(self.buf) >= 3:
             # Attempts to extract a packet
-            packet_header = serialize.ControlHeader.unpack(self.__buf)
+            packet_header = serialize.ControlHeader.unpack(self.buf)
 
-            if len(self.__buf) >= packet_header.size:
-                payload, self.__buf = self.__buf[3:packet_header.size], self.__buf[packet_header.size:]
+            if len(self.buf) >= packet_header.size:
+                payload, self.buf = self.buf[3:packet_header.size], self.buf[packet_header.size:]
                 if packet_header.command != self.__cmd:
                     self.log.error("Expected cmd {}, but got {}. Skip it!".format(self.__cmd, packet_header.command))
                     continue
@@ -139,7 +146,8 @@ class RTDE(Protocol):
     def data_received(self, payload):
         output = self.__config.unpack(payload)
         x, y, z = output.actual_TCP_pose[:3]
-        self.broadcast(x, y, z, output.output_int_register_10)
+	flag = output.actual_digital_input_bits
+        self.client.send("{},{},{},{}".format(TRAVERSE_PREFIX if flag else TOUCH_PREFIX, x * 1000, y * 1000, z * 1000))
 
     def __on_packet(self, payload):
         if self.__cmd == Command.REQUEST_PROTOCOL_VERSION:

@@ -38,7 +38,7 @@ class PowerInspectFactory(Factory):
         self.connections[:] = []
 
     def send(self, data):
-        self.log.debug("sending {} back to all clients".format(data))
+        #self.log.debug("sending {} back to all clients".format(data))
         for connection in self.connections:
             connection.transport.write("{}\n".format(data))
 

@@ -5,29 +5,12 @@ from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
 
 from rtde.rtde import RTDE
 
-ROBOT_ADDRESS = '192.168.100.1'
+ROBOT_ADDRESS = '192.168.1.2'
 PORT = 30004
-TRAVERSE_PREFIX = "T"
-TOUCH_PREFIX = "P"
-
-
-class RTDEProtocol(RTDE):
-    log = Logger(namespace="RTDEProtocol")
-
-    def __init__(self):
-        self.log.debug("beginning the processing loop")
-
-    @property
-    def client(self):
-        return self.factory.client
-
-    def send_traverse_points(self, x, y, z, flag):
-        self.client.send("{},{},{},{}".format(TRAVERSE_PREFIX if flag else TOUCH_PREFIX, x, y, z))
-
 
 
 class RTDEFactory(RCFactory):
-    protocol = RTDEProtocol
+    protocol = RTDE
     client = None
     running = False
 
@@ -49,7 +32,6 @@ class RTDEFactory(RCFactory):
 
 class RTDEClient(object):
     log = Logger(namespace="RTDEClient")
-    address = ROBOT_ADDRESS
     client = None
     connector = None
 
@@ -66,7 +48,7 @@ class RTDEClient(object):
 
     def startPolling(self):
         if not self.factory.running and not self.connector:
-            self.connector = reactor.connectTCP(self.address, self.factory)
+            self.connector = reactor.connectTCP(ROBOT_ADDRESS, PORT, self.factory)
             self.log.info("started reading position and translating to PI")
 
     def stopPolling(self):
