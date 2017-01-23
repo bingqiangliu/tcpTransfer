@@ -1,15 +1,15 @@
-#!/usr/bin/env python
-import sys
-import os.path
+#/usr/bin/env python
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.application.service import Application
+from twisted.application.internet import TCPServer
 
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from sys import path
+from os.path import abspath
+from os.path import dirname 
+path.append(abspath(dirname(__file__)))
 from app.rtdeclient import RTDEClient
 from app.powerinspect import startServer
-from twisted.application.internet import TCPServer
-from twisted.application.service import Application
-from twisted.web.resource import Resource
-from twisted.web.server import Site
-
 
 class Transfer(Resource):
     isLeaf = True
@@ -36,4 +36,4 @@ class Transfer(Resource):
 
 
 application = Application("UR TCP Transfer Application")
-TCPServer(8880, Site(Transfer('/transfer'))).setServiceParent(application)
+TCPServer(8880, Site(Transfer())).setServiceParent(application)
