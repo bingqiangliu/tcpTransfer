@@ -1,0 +1,2 @@
+find /var/log/tcp/ -ctime +30 -exec rm {} \; 
+twistd -y /usr/local/lib/python2.7/dist-packges/tcp.py --pidfile /tmp/tcp.pid -l /var/log/tcp/tcp.log
