@@ -17,7 +17,6 @@ class Transfer(Resource):
     def __init__(self):
         self.piHandler = startServer(49000)
         self.exClient = RTDEClient(self.piHandler)
-        self.exClient.startPolling()
         Resource.__init__(self)
 
     def render_GET(self, request):
