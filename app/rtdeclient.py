@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from twisted.logger import Logger
 from twisted.internet import reactor
-from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
+from twisted.internet.protocol import ReconnectingClientFactory as ClientFactory
 
 from rtde.rtde import RTDE
 
@@ -9,7 +9,7 @@ ROBOT_ADDRESS = '192.168.1.2'
 PORT = 30004
 
 
-class RTDEFactory(RCFactory):
+class RTDEFactory(ClientFactory):
     protocol = RTDE
     client = None
     running = False
@@ -19,15 +19,15 @@ class RTDEFactory(RCFactory):
 
     def startedConnecting(self, connector):
         self.running = True
-        RCFactory.startedConnecting(self, connector)
+        ClientFactory.startedConnecting(self, connector)
 
     def clientConnectionFailed(self, connector, reason):
         self.running = False
-        RCFactory.clientConnectionFailed(self, connector, reason)
+        ClientFactory.clientConnectionFailed(self, connector, reason)
 
     def clientConnectionLost(self, connector, unused_reason):
         self.running = False
-        RCFactory.clientConnectionLost(self, connector, unused_reason)
+        ClientFactory.clientConnectionLost(self, connector, unused_reason)
 
 
 class RTDEClient(object):
@@ -56,4 +56,3 @@ class RTDEClient(object):
             self.connector.disconnect()
             self.connector = None
             self.log.info("stopped reading position and translating to PI")
-
