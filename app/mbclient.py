@@ -6,14 +6,12 @@ from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
 from pymodbus.constants import Defaults
 from pymodbus.client.async import ModbusClientProtocol
 
-ROBOT_ADDRESS = '192.168.100.1'
+ROBOT_ADDRESS = '192.168.1.2'
 
 class PIProtocol(ModbusClientProtocol):
     log = Logger(namespace="PIProtocol")
     TRAVERSE_PREFIX = "T"
     TOUCH_PREFIX = "P"
-    TCP_ADDRESS = 400
-    TOUCH_ADDRESS = 1
 
     def __init__(self, framer=None):
         ModbusClientProtocol.__init__(self, framer=framer)
@@ -30,12 +28,23 @@ class PIProtocol(ModbusClientProtocol):
         return self.factory.client
 
     def fetch_flag_register(self):
-        d = self.read_coils(self.TOUCH_ADDRESS, 1)
+	"""TM specification:
+	|-----------|----|-------------|-------------|------|----|
+	|End Module | FC | Address Dec | Address Hex | Type | R/W| 
+	|-----------|----|-------------|-------------|------|----|
+	|DI 0	    | 02 | 0800        | 0320        | Bool | R  |
+	|DI 1	    | 02 | 0801        | 0321        | Bool | R  |
+	|-----------|----|-------------|-------------|------|----|
+	DI 1 is used to store touch point flag.
+	Value of DI 1 is always 1 if no touch, changes to 0 while touching
+        
+	"""
+        d = self.read_discrete_inputs(800, 1)
         d.addCallbacks(self.on_received_flag, self.error_handler)
 
     def on_received_flag(self, response):
         flag = True if response.getBit(0) else False
-        if flag:
+        if not flag:
             self.log.info("touch happened")
             reactor.callLater(0, self.fetch_tcp_registers, True)
         else:
@@ -43,8 +52,17 @@ class PIProtocol(ModbusClientProtocol):
             reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
     def fetch_tcp_registers(self, touched=False):
+	"""TM specification:
+	|-----------------|----|-------------|-------------|------|-----|------|
+	|Robot Coordinate | FC | Address Dec | Address Hex | Type | R/W | Note |
+	|-----------------|----|-------------|-------------|------|-----|------|
+	|X(Cartesian coor | 04 | 7001 ~ 7002 | 1B59 ~ 1B5A | Float| R   | Dword|
+	|Y(Cartesian coor | 04 | 7003 ~ 7004 | 1B5B ~ 1B5C | Float| R   | Dword|
+	|Z(Cartesian coor | 04 | 7005 ~ 7006 | 1B5D ~ 1B5E | Float| R   | Dword|
+	|-----------------|----|-------------|-------------|------|-----|------|
+	"""
         self.log.debug("fetching TCP registers touched={}".format(touched))
-        d = self.read_holding_registers(self.TCP_ADDRESS, 3)
+        d = self.read_holding_registers(7001, 6)
         if touched:
             d.addCallbacks(self.send_touch_points, self.error_handler)
         else:
@@ -53,28 +71,14 @@ class PIProtocol(ModbusClientProtocol):
     def send_traverse_points(self, response):
         registers = response.registers
         self.client.send("{},{},{},{}".format(self.TRAVERSE_PREFIX, *registers))
-        self.log.info("start next cycle")
+        self.log.info("start next cycle to fetch tcp")
         reactor.callLater(self.interval, self.fetch_tcp_registers)
 
     def send_touch_points(self, response):
         registers = response.registers
         self.client.send("{},{},{},{}".format(self.TOUCH_PREFIX, *registers))
-        self.reset_flag_register()
-
-    def reset_flag_register(self):
-        self.log.debug("reset flag register")
-
-        def done(response):
-            self.log.info("reset succeed {}, start next cycle".
-                          format(response))
-            reactor.callLater(self.interval * 2, self.fetch_flag_register)
-
-        def error(failure):
-            self.log.error("reset failed {}, retry".format(str(failure)))
-            reactor.callLater(self.interval / 2, self.reset_flag_register)
-
-        d = self.write_coil(self.TOUCH_ADDRESS, False)
-        d.addCallbacks(done, error)
+        self.log.info("start next cycle to fetch flag")
+        reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
     def error_handler(self, failure):
         self.log.error(str(failure))
