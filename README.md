@@ -6,3 +6,8 @@ To disable dhcp and use a static IP for eth0, please do as followings:
     sudo systemctl stop dhcpcd.service
 2.  update /etc/network/interfaces as the one in the root of this repo
 3.  reboot
+
+Methods to find out gatway:
+route -n
+or 
+netstate -r -n
