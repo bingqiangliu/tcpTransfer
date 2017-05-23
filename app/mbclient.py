@@ -3,10 +3,12 @@ from twisted.logger import Logger
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
 
+from pymodbus.constants import Endian
 from pymodbus.constants import Defaults
+from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.client.async import ModbusClientProtocol
 
-ROBOT_ADDRESS = '192.168.1.2'
+ROBOT_ADDRESS = '192.168.0.7'
 
 class PIProtocol(ModbusClientProtocol):
     log = Logger(namespace="PIProtocol")
@@ -43,7 +45,7 @@ class PIProtocol(ModbusClientProtocol):
         d.addCallbacks(self.on_received_flag, self.error_handler)
 
     def on_received_flag(self, response):
-        flag = True if response.getBit(0) else False
+        flag = False if response.getBit(0) else True 
         if not flag:
             self.log.info("touch happened")
             reactor.callLater(0, self.fetch_tcp_registers, True)
@@ -60,9 +62,10 @@ class PIProtocol(ModbusClientProtocol):
 	|Y(Cartesian coor | 04 | 7003 ~ 7004 | 1B5B ~ 1B5C | Float| R   | Dword|
 	|Z(Cartesian coor | 04 | 7005 ~ 7006 | 1B5D ~ 1B5E | Float| R   | Dword|
 	|-----------------|----|-------------|-------------|------|-----|------|
+	Order : ABCD -> ABCD BigEndian
 	"""
         self.log.debug("fetching TCP registers touched={}".format(touched))
-        d = self.read_holding_registers(7001, 6)
+        d = self.read_input_registers(7001, 6)
         if touched:
             d.addCallbacks(self.send_touch_points, self.error_handler)
         else:
@@ -70,15 +73,27 @@ class PIProtocol(ModbusClientProtocol):
 
     def send_traverse_points(self, response):
         registers = response.registers
-        self.client.send("{},{},{},{}".format(self.TRAVERSE_PREFIX, *registers))
+        x, y, z = self.decode_xyz(registers)
+        self.client.send("{},{},{},{}".format(self.TRAVERSE_PREFIX, *(x, y, z)))
         self.log.info("start next cycle to fetch tcp")
         reactor.callLater(self.interval, self.fetch_tcp_registers)
 
     def send_touch_points(self, response):
         registers = response.registers
-        self.client.send("{},{},{},{}".format(self.TOUCH_PREFIX, *registers))
+        x, y, z = self.decode_xyz(registers)
+        self.client.send("{},{},{},{}".format(self.TOUCH_PREFIX, *(x, y, z)))
         self.log.info("start next cycle to fetch flag")
         reactor.callLater(self.interval * 2, self.fetch_flag_register)
+
+    def decode_xyz(self, payload):
+        self.log.info('original payload ={}'.format(payload))
+        payload = "{}{}{}{}{}{}".format(*payload)
+        decoder = BinaryPayloadDecoder(payload, endian=Endian.Big)
+        x = decoder.decode_32bit_float()
+        y = decoder.decode_32bit_float()
+        z = decoder.decode_32bit_float()
+        self.log.info('x={}, y={}, z={}'.format(x, y, z))
+        return (x, y, z)
 
     def error_handler(self, failure):
         self.log.error(str(failure))
@@ -127,10 +142,10 @@ class ModbusClient(object):
 
     def startPolling(self):
         if not self.factory.running and not self.connector:
+            self.log.info("try to start reading position and translating to PI")
             self.connector = reactor.connectTCP(self.address,
                                                 self.port,
                                                 self.factory)
-            self.log.info("started reading position and translating to PI")
 
     def stopPolling(self):
         if self.factory.running and self.connector:

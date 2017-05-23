@@ -11,7 +11,7 @@ from sys import path
 from os.path import abspath
 from os.path import dirname 
 path.append(abspath(dirname(__file__)))
-from app.rtdeclient import RTDEClient
+from app.mbclient import ModbusClient
 from app.powerinspect import startServer
 
 
@@ -21,7 +21,7 @@ class API(Resource):
 
     def __init__(self):
         self.piHandler = startServer(49000)
-        self.exClient = RTDEClient(self.piHandler)
+        self.exClient = ModbusClient(self.piHandler)
         self.path = "api"
         if "TCPRUN" in os.environ:
             self.exClient.startPolling()
@@ -53,6 +53,7 @@ class WebUI(Resource):
         return self
 
     def render_POST(self, request):
+        self.api.render_POST(request)
         return self.render_GET(request)
 
     def render_GET(self, _):
