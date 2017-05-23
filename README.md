@@ -8,6 +8,11 @@ To disable dhcp and use a static IP for eth0, please do as followings:
 3.  reboot
 
 Methods to find out gatway:
-route -n
-or 
-netstate -r -n
+  route -n
+  or 
+  netstate -r -n
+
+Change the keyboard layout
+1. sudo raspi-config
+2. sudo dpkg-reconfigure keyboard-configuration 
+for me I choose Dell 101 Keybaord
