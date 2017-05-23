@@ -17,3 +17,7 @@ Change the keyboard layout
 1. sudo raspi-config
 2. sudo dpkg-reconfigure keyboard-configuration 
 for me I choose Dell 101 Keybaord
+
+To make twistd can listen on 80
+sudo setcap CAP_NET_BIND_SERVICE+ep /usr/bin/twistd
+sudo setcap CAP_NET_BIND_SERIVCE+ep /usr/local/bin/twistd
