@@ -1,2 +1,2 @@
 find /var/log/tcp/ -ctime +3 -exec rm {} \; 
-twistd -y /usr/local/lib/python2.7/dist-packages/tcp.py --pidfile /tmp/tcp.pid -l /var/log/tcp/tcp.log
+TCPRUN=yes twistd -y /usr/local/lib/python2.7/dist-packages/tcp.py --pidfile /tmp/tcp.pid -l /var/log/tcp/tcp.log
