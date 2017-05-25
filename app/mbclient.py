@@ -8,7 +8,7 @@ from pymodbus.constants import Defaults
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.client.async import ModbusClientProtocol
 
-ROBOT_ADDRESS = '192.168.0.7'
+ROBOT_ADDRESS = '192.168.0.2'
 
 class PIProtocol(ModbusClientProtocol):
     log = Logger(namespace="PIProtocol")
@@ -86,9 +86,22 @@ class PIProtocol(ModbusClientProtocol):
         reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
     def decode_xyz(self, payload):
+        def registers_to_str(r):
+            h = (r >> 8) & 0xff
+            l = r & 0xff
+            return "{}{}".format(chr(h), chr(l))
+
         self.log.info('original payload ={}'.format(payload))
-        payload = "{}{}{}{}{}{}".format(*payload)
-        decoder = BinaryPayloadDecoder(payload, endian=Endian.Big)
+        str_payload = "{}{}{}{}{}{}".format(
+            registers_to_str(payload[0]),
+            registers_to_str(payload[1]),
+            registers_to_str(payload[2]),
+            registers_to_str(payload[3]),
+            registers_to_str(payload[4]),
+            registers_to_str(payload[5])
+        )
+        self.log.info('str_original payload ={}'.format(str_payload))
+        decoder = BinaryPayloadDecoder(str_payload, endian=Endian.Big)
         x = decoder.decode_32bit_float()
         y = decoder.decode_32bit_float()
         z = decoder.decode_32bit_float()
