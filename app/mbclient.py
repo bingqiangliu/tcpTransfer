@@ -20,6 +20,7 @@ class PIProtocol(ModbusClientProtocol):
         self.log.debug("beginning the processing loop")
         reactor.callLater(0, self.fetch_tcp_registers)
         reactor.callLater(0, self.fetch_flag_register)
+        self.previous_touched = False
 
     @property
     def interval(self):
@@ -45,12 +46,19 @@ class PIProtocol(ModbusClientProtocol):
         d.addCallbacks(self.on_received_flag, self.error_handler)
 
     def on_received_flag(self, response):
-        flag = False if response.getBit(0) else True 
+        flag = True if response.getBit(0) else False
         if not flag:
             self.log.info("touch happened")
+            if self.previous_touched:
+                self.log.info("previous touched is True, skip continus touch point signal")
+		self.log.info("start next cycle to fetch flag")
+		reactor.callLater(self.interval * 2, self.fetch_flag_register)
+                return
+            self.previous_touched = True
             reactor.callLater(0, self.fetch_tcp_registers, True)
         else:
             self.log.info("start next cycle for touched")
+            self.previous_touched = False
             reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
     def fetch_tcp_registers(self, touched=False):
