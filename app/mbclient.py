@@ -108,7 +108,6 @@ class PIProtocol(ModbusClientProtocol):
             registers_to_str(payload[4]),
             registers_to_str(payload[5])
         )
-        self.log.info('str_original payload ={}'.format(str_payload))
         decoder = BinaryPayloadDecoder(str_payload, endian=Endian.Big)
         x = decoder.decode_32bit_float()
         y = decoder.decode_32bit_float()
