@@ -38,8 +38,8 @@ class PIProtocol(ModbusClientProtocol):
 	|DI 0	    | 02 | 0800        | 0320        | Bool | R  |
 	|DI 1	    | 02 | 0801        | 0321        | Bool | R  |
 	|-----------|----|-------------|-------------|------|----|
-	DI 1 is used to store touch point flag.
-	Value of DI 1 is always 1 if no touch, changes to 0 while touching
+	DI 0 is used to store touch point flag.
+	Value of DI 0 is always 1 if no touch, changes to 0 while touching
         
 	"""
         d = self.read_discrete_inputs(800, 1)
@@ -66,14 +66,14 @@ class PIProtocol(ModbusClientProtocol):
 	|-----------------|----|-------------|-------------|------|-----|------|
 	|Robot Coordinate | FC | Address Dec | Address Hex | Type | R/W | Note |
 	|-----------------|----|-------------|-------------|------|-----|------|
-	|X(Cartesian coor | 04 | 7001 ~ 7002 | 1B59 ~ 1B5A | Float| R   | Dword|
-	|Y(Cartesian coor | 04 | 7003 ~ 7004 | 1B5B ~ 1B5C | Float| R   | Dword|
-	|Z(Cartesian coor | 04 | 7005 ~ 7006 | 1B5D ~ 1B5E | Float| R   | Dword|
+	|X(Cartesian coor | 04 | 7025 ~ 7026 | 1B71 ~ 1B72 | Float| R   | Dword|
+	|Y(Cartesian coor | 04 | 7027 ~ 7028 | 1B73 ~ 1B74 | Float| R   | Dword|
+	|Z(Cartesian coor | 04 | 7029 ~ 7030 | 1B75 ~ 1B76 | Float| R   | Dword|
 	|-----------------|----|-------------|-------------|------|-----|------|
 	Order : ABCD -> ABCD BigEndian
 	"""
         self.log.debug("fetching TCP registers touched={}".format(touched))
-        d = self.read_input_registers(7001, 6)
+        d = self.read_input_registers(7025, 6)
         if touched:
             d.addCallbacks(self.send_touch_points, self.error_handler)
         else:
