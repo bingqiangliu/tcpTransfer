@@ -151,7 +151,7 @@ class ModbusClient(object):
 
     def __init__(self, client):
         self.client = client
-        self.factory = PIFactory(self.client, 10)
+        self.factory = PIFactory(self.client, 1)
 
     def reconfig(self, address, port=Defaults.Port):
         if (self.address, self.port) == (address, port):
