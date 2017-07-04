@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import twisted.python.logfile
+from twisted.python import log
+from twisted.python import logfile
 
 def logger():
     f = logfile.LogFile("tcp.log", '/var/log/tcp/', rotateLength=10000000, maxRotatedFiles=50)
