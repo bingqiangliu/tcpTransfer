@@ -19,5 +19,6 @@ Change the keyboard layout
 for me I choose Dell 101 Keybaord
 
 To make twistd can listen on 80
-sudo setcap CAP_NET_BIND_SERVICE+ep /usr/bin/twistd
-sudo setcap CAP_NET_BIND_SERIVCE+ep /usr/local/bin/twistd
+>sudo setcap CAP_NET_BIND_SERVICE+ep /usr/bin/twistd
+
+>sudo setcap CAP_NET_BIND_SERIVCE+ep /usr/local/bin/twistd
