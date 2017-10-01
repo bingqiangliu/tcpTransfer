@@ -27,21 +27,25 @@ class PIProtocol(ModbusClientProtocol):
         return self.factory.interval / 1000
 
     @property
+    def interval_after_touched(self):
+        return self.factory.interval_after_touched / 1000
+
+    @property
     def client(self):
         return self.factory.client
 
     def fetch_flag_register(self):
-	"""TM specification:
-	|-----------|----|-------------|-------------|------|----|
-	|End Module | FC | Address Dec | Address Hex | Type | R/W| 
-	|-----------|----|-------------|-------------|------|----|
-	|DI 0	    | 02 | 0800        | 0320        | Bool | R  |
-	|DI 1	    | 02 | 0801        | 0321        | Bool | R  |
-	|-----------|----|-------------|-------------|------|----|
-	DI 0 is used to store touch point flag.
-	Value of DI 0 is always 1 if no touch, changes to 0 while touching
-        
-	"""
+        """TM specification:
+        |-----------|----|-------------|-------------|------|----|
+        |End Module | FC | Address Dec | Address Hex | Type | R/W| 
+        |-----------|----|-------------|-------------|------|----|
+        |DI 0      | 02 | 0800        | 0320        | Bool | R  |
+        |DI 1      | 02 | 0801        | 0321        | Bool | R  |
+        |-----------|----|-------------|-------------|------|----|
+        DI 0 is used to store touch point flag.
+        Value of DI 0 is always 1 if no touch, changes to 0 while touching
+              
+        """
         d = self.read_discrete_inputs(800, 1)
         d.addCallbacks(self.on_received_flag, self.error_handler)
 
@@ -51,32 +55,34 @@ class PIProtocol(ModbusClientProtocol):
             self.log.info("touch happened")
             if self.previous_touched:
                 self.log.info("previous touched is True, skip continus touch point signal")
-		self.log.info("start next cycle to fetch flag")
-		reactor.callLater(self.interval * 2, self.fetch_flag_register)
+                self.log.info("start next cycle to fetch flag")
+                reactor.callLater(self.interval * 2, self.fetch_flag_register)
                 return
             self.previous_touched = True
-            reactor.callLater(0, self.fetch_tcp_registers, True)
+            reactor.callLater(self.interval_after_touched, self.fetch_tcp_registers, True)
         else:
             self.log.info("start next cycle for touched")
             self.previous_touched = False
             reactor.callLater(self.interval * 2, self.fetch_flag_register)
 
     def fetch_tcp_registers(self, touched=False):
-	"""TM specification:
-	|-----------------|----|-------------|-------------|------|-----|------|
-	|Robot Coordinate | FC | Address Dec | Address Hex | Type | R/W | Note |
-	|-----------------|----|-------------|-------------|------|-----|------|
-	|X(Cartesian coor | 04 | 7025 ~ 7026 | 1B71 ~ 1B72 | Float| R   | Dword|
-	|Y(Cartesian coor | 04 | 7027 ~ 7028 | 1B73 ~ 1B74 | Float| R   | Dword|
-	|Z(Cartesian coor | 04 | 7029 ~ 7030 | 1B75 ~ 1B76 | Float| R   | Dword|
-	|-----------------|----|-------------|-------------|------|-----|------|
-	Order : ABCD -> ABCD BigEndian
-	"""
+        """TM specification:
+        |-----------------|----|-------------|-------------|------|-----|------|
+        |Robot Coordinate | FC | Address Dec | Address Hex | Type | R/W | Note |
+        |-----------------|----|-------------|-------------|------|-----|------|
+        |X(Cartesian coor | 04 | 7025 ~ 7026 | 1B71 ~ 1B72 | Float| R   | Dword|
+        |Y(Cartesian coor | 04 | 7027 ~ 7028 | 1B73 ~ 1B74 | Float| R   | Dword|
+        |Z(Cartesian coor | 04 | 7029 ~ 7030 | 1B75 ~ 1B76 | Float| R   | Dword|
+        |-----------------|----|-------------|-------------|------|-----|------|
+        7425 ~ 7430 will be set after touched for the same XYZ
+        Order : ABCD -> ABCD BigEndian
+        """
         self.log.debug("fetching TCP registers touched={}".format(touched))
-        d = self.read_input_registers(7025, 6)
         if touched:
+            d = self.read_input_registers(7045, 6)
             d.addCallbacks(self.send_touch_points, self.error_handler)
         else:
+            d = self.read_input_registers(7025, 6)
             d.addCallbacks(self.send_traverse_points, self.error_handler)
 
     def send_traverse_points(self, response):
@@ -123,11 +129,13 @@ class PIFactory(RCFactory):
     protocol = PIProtocol
     client = None
     interval = None
+    interval_after_touched = None
     running = False
 
-    def __init__(self, client, interval):
+    def __init__(self, client, interval, interval_after_touched):
         self.client = client
         self.interval = interval
+        self.interval_after_touched  = interval_after_touched
 
     def startedConnecting(self, connector):
         self.running = True
@@ -151,7 +159,7 @@ class ModbusClient(object):
 
     def __init__(self, client):
         self.client = client
-        self.factory = PIFactory(self.client, 1)
+        self.factory = PIFactory(self.client, 1, 30)
 
     def reconfig(self, address, port=Defaults.Port):
         if (self.address, self.port) == (address, port):
