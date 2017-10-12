@@ -37,14 +37,14 @@ class PIProtocol(ModbusClientProtocol):
     def fetch_flag_register(self):
         """TM specification:
         |-----------|----|-------------|-------------|------|----|
-        |End Module | FC | Address Dec | Address Hex | Type | R/W| 
+        |End Module | FC | Address Dec | Address Hex | Type | R/W|
         |-----------|----|-------------|-------------|------|----|
         |DI 0      | 02 | 0800        | 0320        | Bool | R  |
         |DI 1      | 02 | 0801        | 0321        | Bool | R  |
         |-----------|----|-------------|-------------|------|----|
         DI 0 is used to store touch point flag.
         Value of DI 0 is always 1 if no touch, changes to 0 while touching
-              
+
         """
         d = self.read_discrete_inputs(800, 1)
         d.addCallbacks(self.on_received_flag, self.error_handler)
@@ -79,7 +79,7 @@ class PIProtocol(ModbusClientProtocol):
         """
         self.log.debug("fetching TCP registers touched={}".format(touched))
         if touched:
-            d = self.read_input_registers(7045, 6)
+            d = self.read_input_registers(7425, 6)
             d.addCallbacks(self.send_touch_points, self.error_handler)
         else:
             d = self.read_input_registers(7025, 6)
