@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import time
+
 from twisted.logger import Logger
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory as RCFactory
@@ -59,6 +61,7 @@ class PIProtocol(ModbusClientProtocol):
                 reactor.callLater(self.interval * 2, self.fetch_flag_register)
                 return
             self.previous_touched = True
+            time.sleep(0.05)
             reactor.callLater(self.interval_after_touched, self.fetch_tcp_registers, True)
         else:
             self.log.info("start next cycle for touched")
@@ -159,7 +162,7 @@ class ModbusClient(object):
 
     def __init__(self, client):
         self.client = client
-        self.factory = PIFactory(self.client, 1, 30)
+        self.factory = PIFactory(self.client, 0, 0)
 
     def reconfig(self, address, port=Defaults.Port):
         if (self.address, self.port) == (address, port):
