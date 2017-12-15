@@ -140,7 +140,7 @@ class PIProtocol(ModbusClientProtocol):
         with open(self.RATIO_CFG) as handle:
             d = load(handle)
         keys = sorted(d.keys())
-        if not keys[0]:
+        if keys[0]:
             raise Exception('Missed specifying 0')
         ext_keys = keys[0:]
         ext_keys = keys.append(10000000)
