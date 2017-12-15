@@ -142,14 +142,14 @@ class PIProtocol(ModbusClientProtocol):
         keys = sorted(d.keys())
         if keys[0]:
             raise Exception('Missed specifying 0')
-        ext_keys = keys[0:]
-        ext_keys = keys.append(10000000)
+        ext_keys = keys[1:]
+        ext_keys.append(10000000)
         for l, h in zip(keys, ext_keys):
-            self.ratio_map[xrange(l, h)] = keys[l]
+            self.ratio_map[xrange(l, h)] = d[l]
 
     def get_ratio(self, x, y, z):
         """get ratio from the map"""
-        radius = int(sqrt(x * x, y * y, z * z))
+        radius = int(sqrt(x * x + y * y + z * z))
         for k, v in self.ratio_map.items():
             if radius in k:
                 return v
