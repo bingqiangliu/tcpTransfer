@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import time
-
 from math import sqrt
-from yaml import dump
 from yaml import load
 
 from twisted.logger import Logger
@@ -130,30 +128,31 @@ class PIProtocol(ModbusClientProtocol):
         z = decoder.decode_32bit_float()
         self.log.info('x={}, y={}, z={}'.format(x, y, z))
         ratio = self.get_ratio(x, y, z)
-        x = x * ratio
-        y = y * ratio
-        z = z * ratio
+        x *= ratio
+        y *= ratio
+        z *= ratio
+        self.log.info('x={}, y={}, z={}'.format(x, y, z))
         return (x, y, z)
 
     def load_ratio_map(self):
-        """load ratio map from /etc/tcp_ratio.yaml"""
         with open(self.RATIO_CFG) as handle:
             d = load(handle)
         keys = sorted(d.keys())
         if keys[0]:
-            raise Exception('Missed specifying 0')
+            raise Exception("Missed specifying 0")
         ext_keys = keys[1:]
-        ext_keys.append(10000000)
+        ext_keys.append(10000)
         for l, h in zip(keys, ext_keys):
             self.ratio_map[xrange(l, h)] = d[l]
+        for k, v in self.ratio_map.items():
+            self.log.info("{}: {}".format(k, v))
 
     def get_ratio(self, x, y, z):
-        """get ratio from the map"""
-        radius = int(sqrt(x * x + y * y + z * z))
+        radius = int(sqrt(x*x + y*y + z*z))
         for k, v in self.ratio_map.items():
             if radius in k:
-                return v
-        raise Exception("Should never be here!")
+               return v
+        raise Exception("should never be here")
 
     def error_handler(self, failure):
         self.log.error(str(failure))
