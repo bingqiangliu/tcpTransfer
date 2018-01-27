@@ -137,21 +137,33 @@ class PIProtocol(ModbusClientProtocol):
     def load_ratio_map(self):
         with open(self.RATIO_CFG) as handle:
             d = load(handle)
+
+        def load_sub_map(z, z_map):
+            sub_map = {}
+            keys = sorted(z_map.keys())
+            if keys[0]:
+                raise Exception("Missed specifying 0 for Z={}".format(z))
+            ext_keys = keys[1:]
+            ext_keys.append(10000)
+            for l, h in zip(keys, ext_keys):
+                sub_map[xrange(l, h)] = z_map[l]
+            for k, v in sub_map.items():
+                self.log.info("{}: {}".format(k, v))
+            return sub_map
+
         keys = sorted(d.keys())
-        if keys[0]:
-            raise Exception("Missed specifying 0")
         ext_keys = keys[1:]
         ext_keys.append(10000)
         for l, h in zip(keys, ext_keys):
-            self.ratio_map[xrange(l, h)] = d[l]
-        for k, v in self.ratio_map.items():
-            self.log.info("{}: {}".format(k, v))
+            self.ratio_map[xrange(l, h)] = load_sub_map(xrange(l, h), d[l])
 
     def get_ratio(self, x, y, z):
         radius = int(sqrt(x*x + y*y + z*z))
         for k, v in self.ratio_map.items():
-            if radius in k:
-               return v
+            if z in k:
+                for sub_k, sub_v in v.items():
+                    if radius in sub_k:
+                        return sub_v
         raise Exception("should never be here")
 
     def error_handler(self, failure):

@@ -1,10 +1,11 @@
 # deployment note: please save this file /etc/tcp_ratio.yaml
+# this configure has two folds, fist level for Z, second level for ratio
 # format note: only lower boundaries are must, for example
 # 0: 1.0000
 # 300: 0.9999
 # 500: 0.9998
 # means:
-#       0~300(300 is not included) will use 1.0000 as ratio
+#     0~300(300 is not included) will use 1.0000 as ratio
 #     300~500(500 is not included) will use 0.9999 as ratio
 #     500~                         will use 0.9998 as ratio
 
@@ -13,10 +14,20 @@
 # *** never start a valid line with space
 # *** always use Linux file format (NO Windows)
 
-0: 1.0000
-50: 1.0001
-100: 1.0002
-150: 1.0003
-200: 1.0004
+-100:
+  0: 1.0000
+  50: 1.0001
+  100: 1.0002
+  150: 1.0003
+  200: 1.0004
+-50:
+  0: 1.0000
+  50: 1.0002
+  100: 1.00003
+100:
+  0: 1.0001
+  100: 1.0002
+  200: 1.0003
+  300: 1.0004
 
 
