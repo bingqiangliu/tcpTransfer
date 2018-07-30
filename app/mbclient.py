@@ -160,7 +160,7 @@ class PIProtocol(ModbusClientProtocol):
     def get_ratio(self, x, y, z):
         radius = int(sqrt(x*x + y*y + z*z))
         for k, v in self.ratio_map.items():
-            if z in k:
+            if int(z) in k:
                 for sub_k, sub_v in v.items():
                     if radius in sub_k:
                         return sub_v
